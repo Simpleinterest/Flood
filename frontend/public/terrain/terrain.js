@@ -18,7 +18,20 @@ export const API = {
   network: '/runs/{run}/network.geojson',
   clock: '/clock',
   clockWs: '/clock/ws',
+  vulnerability: '/runs/{run}/vulnerability.geojson',
+  exposure: '/runs/{run}/exposure?p=&t=',
 };
+
+// Demographic heatmaps (mirrors src/flood/verifier/static/terrain.js). Warm ramps so they
+// read against the blue depth drape they sit on top of.
+const HEAT_RAMPS = {
+  vulnerability: [0, 'rgba(0,0,0,0)', 0.15, 'rgba(255,240,170,0.55)', 0.45, '#ffd43b', 0.75, '#ffb000', 1, '#ff8a00'],
+  exposure: [0, 'rgba(0,0,0,0)', 0.15, 'rgba(255,180,110,0.6)', 0.4, '#ff7a1a', 0.7, '#ff2d2d', 1, '#ff1f6b'],
+};
+// The model's weights are a relative ordering, not a magnitude, and are tiny (median ~0.001,
+// max ~0.27), so used raw they render almost nothing. Stretch them monotonically: order is kept.
+const HEAT_WEIGHT = ['interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0],
+  0, 0, 0.0005, 0.2, 0.002, 0.45, 0.01, 0.75, 0.05, 1];
 
 const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
 const TERRAIN_ATTRIBUTION =
@@ -108,6 +121,7 @@ export const state = {
   gaugePoints: [],
   reachRows: new Map(), // feature_id -> reach row at (p, t)
   gaugeSeries: new Map(), // site -> [{ms, row}] sorted by ms
+  footprintCentroids: new Map(), // impact feature_ref -> [lon, lat] from vulnerability.geojson
   lastKey: null,
   lastGaugeKey: null,
   lastState: null,
@@ -136,14 +150,18 @@ const incidentLayerIds = {
   people: ['incident-people'],
   landmarks: ['incident-landmarks'],
   flow: ['incident-flow'],
+  vulnerability: ['vulnerability-heat'],
+  exposure: ['exposure-heat'],
 };
+let incidentLayerState = {};
 const incidentAreas = new Map();
 let incidentSelection = null;
 let pendingIncidentFocus = null;
 let pendingIncidentFeatures = null;
 const embedded = window.parent !== window;
 
-function setIncidentLayers(layers = {}, selected) {
+function setIncidentLayers(layers = incidentLayerState, selected) {
+  incidentLayerState = layers || {};
   incidentSelection = selected || incidentSelection;
   for (const [name, ids] of Object.entries(incidentLayerIds)) {
     for (const id of ids) if (map?.getLayer(id)) map.setLayoutProperty(id, 'visibility', layers[name] === false ? 'none' : 'visible');
@@ -209,7 +227,7 @@ async function addIncidentLayers() {
     map.on('click', 'incident-areas-fill', (e) => window.parent.postMessage({ type: 'incident-select', id: e.features?.[0]?.properties?.id }, window.location.origin));
     map.on('mouseenter', 'incident-areas-fill', (e) => { map.getCanvas().style.cursor = 'pointer'; window.parent.postMessage({ type: 'incident-hover', id: e.features?.[0]?.properties?.id }, window.location.origin); });
     map.on('mouseleave', 'incident-areas-fill', () => { map.getCanvas().style.cursor = ''; window.parent.postMessage({ type: 'incident-hover', id: null }, window.location.origin); });
-    setIncidentLayers({}, incidentSelection);
+    setIncidentLayers(incidentLayerState, incidentSelection);
     if (pendingIncidentFeatures) updateIncidentFeatures(pendingIncidentFeatures);
     if (pendingIncidentFocus) {
       focusIncidentArea(pendingIncidentFocus);
@@ -457,6 +475,22 @@ function reachWidthExpr(mult) {
   ];
 }
 
+function heatLayer(id, source, ramp, opacity) {
+  return {
+    id,
+    type: 'heatmap',
+    source,
+    layout: { visibility: 'none' },
+    paint: {
+      'heatmap-weight': HEAT_WEIGHT,
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 14, 1.6],
+      'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], ...ramp],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 14, 14, 32],
+      'heatmap-opacity': opacity,
+    },
+  };
+}
+
 function buildStyle() {
   const sources = {
     'terrain-dem': {
@@ -471,6 +505,8 @@ function buildStyle() {
     'hillshade-dem': { type: 'raster-dem', tiles: TERRAIN_TILES, encoding: 'terrarium', tileSize: 256, maxzoom: 15 },
     depth: { type: 'image', url: TRANSPARENT_PX, coordinates: PLACEHOLDER_COORDS },
     reaches: { type: 'geojson', data: emptyFC(), promoteId: 'feature_id' },
+    'vulnerability-static': { type: 'geojson', data: emptyFC() },
+    'exposure-live': { type: 'geojson', data: emptyFC() },
   };
   for (const [k, b] of Object.entries(BASEMAPS)) {
     sources[`basemap-${k}`] = { type: 'raster', tiles: b.tiles, tileSize: 256, maxzoom: b.maxzoom, attribution: b.attribution };
@@ -506,6 +542,10 @@ function buildStyle() {
     source: 'depth',
     paint: { 'raster-opacity': state.opacity, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
   });
+  // Heatmaps sit above the depth drape (which would otherwise wash them out) and below the
+  // reaches and labels. Visibility follows the Command view's layer toggles.
+  layers.push(heatLayer('vulnerability-heat', 'vulnerability-static', HEAT_RAMPS.vulnerability, 0.85));
+  layers.push(heatLayer('exposure-heat', 'exposure-live', HEAT_RAMPS.exposure, 0.9));
   const reachFilter = ['==', ['get', 'in_aoi'], true];
   const lineLayout = { 'line-cap': 'round', 'line-join': 'round', visibility: state.showReaches ? 'visible' : 'none' };
   layers.push({
@@ -647,6 +687,50 @@ function applyOverlay({ blobUrl, bounds4326, bounds3857 }) {
     blobUrls.push(blobUrl);
     while (blobUrls.length > 2) URL.revokeObjectURL(blobUrls.shift());
   });
+}
+
+// Mirrors flood.impact.exposure_fusion.demographic_feature_id_to_feature_ref (and the copy in
+// src/flood/verifier/static/terrain.js): the exposure endpoint keys points by impact
+// feature_ref, so their coordinates come from the static vulnerability layer.
+function demographicFeatureIdToFeatureRef(featureId, layerId = 'structure') {
+  const stripped = String(featureId).replace(/^[a-z_]+:/, '');
+  return `${layerId}:${stripped.replace(/[:/]/g, '.')}`;
+}
+
+function applyVulnerability(fc) {
+  state.footprintCentroids = new Map();
+  for (const f of fc.features || []) {
+    const fid = f.properties && f.properties.feature_id;
+    if (!fid || !f.geometry || f.geometry.type !== 'Point') continue;
+    state.footprintCentroids.set(demographicFeatureIdToFeatureRef(fid), f.geometry.coordinates);
+  }
+  whenStyleReady(() => map.getSource('vulnerability-static')?.setData(fc));
+}
+
+async function fetchExposure(p, t, signal) {
+  // Supplementary layer: never fail the refresh over it. precomputed=1 snaps to the nearest
+  // prewarmed tick, the only ones `flood impacts extract-prewarmed` writes impact files for.
+  try {
+    return await fetchJson(apiUrl(API.exposure, { p, t, precomputed: 1 }), signal);
+  } catch (err) {
+    if (err && err.name === 'AbortError') throw err;
+    return [];
+  }
+}
+
+function applyExposure(features) {
+  const fc = {
+    type: 'FeatureCollection',
+    features: (features || [])
+      .map((f) => {
+        const coords = state.footprintCentroids.get(f.feature_id);
+        return coords
+          ? { type: 'Feature', geometry: { type: 'Point', coordinates: coords }, properties: { weight: f.weight, feature_id: f.feature_id } }
+          : null;
+      })
+      .filter(Boolean),
+  };
+  whenStyleReady(() => map.getSource('exposure-live')?.setData(fc));
 }
 
 function applyReaches(rows) {
@@ -900,12 +984,14 @@ async function refresh() {
     state.lastState = st;
     updateReadout(st.p == null ? 'hindsight' : st.p, st.t, st);
 
-    const [overlay, reaches] = await Promise.all([
+    const [overlay, reaches, exposure] = await Promise.all([
       fetchOverlay(p, t, signal),
       fetchJson(apiUrl(API.reaches, { p, t }), signal),
+      fetchExposure(p, t, signal),
     ]);
     applyOverlay(overlay);
     applyReaches(reaches);
+    applyExposure(exposure);
 
     const gaugeKey = `${state.runId}|${p === 'hindsight' ? p : floor5(p)}`;
     if (gaugeKey !== state.lastGaugeKey) {
@@ -1092,6 +1178,12 @@ async function selectRun(runId) {
       } catch {
         /* names are cosmetic */
       }
+    }
+
+    try {
+      applyVulnerability(await fetchJson(apiUrl(API.vulnerability)));
+    } catch {
+      /* optional: absent for scenarios with no demographic-risk output */
     }
 
     const fc = await fetchJson(apiUrl(API.network));
