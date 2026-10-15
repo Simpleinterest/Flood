@@ -6,7 +6,7 @@ Requires a real built AAR corpus and a real `OPENAI_API_KEY` to produce
 meaningful scores: both the critic generation step (`critic.service.
 run_critique`) and the RAGAS judge step call OpenAI for real. This is a
 genuine departure from every other run path in `ingestion/` -- see
-`ingestion/README.md`.
+`docs/ingestion.md`.
 """
 from __future__ import annotations
 

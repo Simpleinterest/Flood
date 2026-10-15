@@ -30,7 +30,7 @@ That reads the tracked HAND files (no download unless `--force`) and writes `dat
 
 Then open `http://127.0.0.1:8000/verifier/` (2D) or `http://127.0.0.1:8000/verifier/terrain.html` (3D). The run list puts the calibrated run first. Requests inside the prewarmed window (cutoffs 06:00 to 10:00Z, horizons 0 to 240 minutes, hindsight 06:00 to 12:00Z every 30 minutes) are served from disk in one to three seconds; anything else computes on demand, about 17 seconds cold. Pages send `precomputed=1` by default so a playing clock never triggers a computation; untick "Prewarmed only" to compute arbitrary times.
 
-The 3D page's live vulnerability heatmap stays empty until impact files exist for the run; generate them with `flood impacts extract-prewarmed` (see the root `README.md`, step 4).
+The 3D page's live vulnerability heatmap stays empty until impact files exist for the run; generate them with `flood impacts extract-prewarmed` (see `ingestion/README.md`).
 
 Tests: `.venv/bin/pytest`.
 

@@ -12,5 +12,5 @@ Only this package's own plumbing (loading samples, calling the critic,
 reshaping a `CritiqueResponse` into RAGAS's input shape, formatting a report)
 is offline-testable. Producing an actual score requires a real
 `OPENAI_API_KEY`, real network access, and a real built AAR corpus -- see
-`ingestion/README.md`.
+`docs/ingestion.md`.
 """
