@@ -11,7 +11,8 @@ Needs Python 3.12+ (macOS's built-in `python3` is too old), Node 22.13+ with pnp
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/flood prep hand scenarios/kerr-2025-07-04.json   # one-time, ~3 min
-.venv/bin/flood serve --port 8000
+FLOOD_CLOCK_START=2025-07-04T06:00:00Z FLOOD_CLOCK_END=2025-07-04T10:00:00Z \
+  .venv/bin/flood serve --port 8000   # clock limited to the prewarmed window
 ```
 
 **2. Command interface** → http://localhost:3000

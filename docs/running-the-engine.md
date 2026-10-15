@@ -25,8 +25,11 @@ python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 That reads the tracked HAND files (no download unless `--force`) and writes `data/cube/kerr-2025-07-04/`, about three minutes.
 
 ```bash
-.venv/bin/flood serve --host 127.0.0.1 --port 8000
+FLOOD_CLOCK_START=2025-07-04T06:00:00Z FLOOD_CLOCK_END=2025-07-04T10:00:00Z \
+  .venv/bin/flood serve --host 127.0.0.1 --port 8000
 ```
+
+The two `FLOOD_CLOCK_*` variables keep the clock inside the prewarmed window. Without them it starts at the scenario's record start (3 July, 12:00Z), and the pages report `not_precomputed` for any time before 06:00Z on 4 July.
 
 Then open `http://127.0.0.1:8000/verifier/` (2D) or `http://127.0.0.1:8000/verifier/terrain.html` (3D). The run list puts the calibrated run first. Requests inside the prewarmed window (cutoffs 06:00 to 10:00Z, horizons 0 to 240 minutes, hindsight 06:00 to 12:00Z every 30 minutes) are served from disk in one to three seconds; anything else computes on demand, about 17 seconds cold. Pages send `precomputed=1` by default so a playing clock never triggers a computation; untick "Prewarmed only" to compute arbitrary times.
 
