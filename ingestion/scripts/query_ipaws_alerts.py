@@ -4,7 +4,7 @@ directly, without booting the FastAPI critic service.
 Prints the resulting JSON array to stdout (or, with `--count-only`, the
 integer count). Never wired into an agent loop and never automatically
 called by `POST /v1/critique`; see `ingestion/critic/ipaws.py` and
-`ingestion/README.md` for the tool's fixed field set, default
+`docs/ingestion.md` for the tool's fixed field set, default
 `status="Actual"` filter, and the retention-accuracy caveat.
 
 Usage:

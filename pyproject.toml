@@ -26,6 +26,8 @@ where = ["src"]
 "flood.verifier" = ["static/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# conftest.py imports tests.fixtures.*, so the repo root must be importable under a bare `pytest`.
+pythonpath = ["."]
 markers = [
   "network: needs internet, skipped by default",
   "postgis: needs FLOOD_TEST_POSTGIS_DSN, skipped by default",

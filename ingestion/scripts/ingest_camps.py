@@ -8,7 +8,7 @@ This script ships and is tested only against the synthetic fixture at
 tests/fixtures/sample_camps.geojson (see tests/test_ingest_camps.py). Real
 camp footprint acquisition (KCAD parcel search, TNRIS StratMap request,
 ReportAll/Regrid purchase, or aerial-imagery tracing) is manual and out of
-scope for this feature -- see ingestion/README.md's follow-up checklist.
+scope for this feature -- see docs/ingestion.md's follow-up checklist.
 
 Usage:
     python -m scripts.ingest_camps --input <path to GeoJSON/Shapefile> [--source <name>] [--id-field <column>]

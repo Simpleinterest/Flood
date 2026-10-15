@@ -403,52 +403,36 @@ function buildStyle() {
       'hillshade-accent-color': '#0b1a2c',
     },
   });
-  // Addendum 2 ordering: below the live hazard tiles, above terrain/hillshade, so current
-  // flood conditions always visually dominate these supplementary demographic layers.
-  layers.push({
-    id: 'vulnerability-heat',
-    type: 'heatmap',
-    source: 'vulnerability-static',
-    layout: { visibility: state.showVulnerability ? 'visible' : 'none' },
-    paint: {
-      'heatmap-weight': ['coalesce', ['get', 'weight'], 0],
-      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 14, 1.4],
-      'heatmap-color': [
-        'interpolate', ['linear'], ['heatmap-density'],
-        0, 'rgba(0,0,0,0)',
-        0.3, '#c9b7ff',
-        0.6, '#8f6bff',
-        1, '#4b1fbd',
-      ],
-      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 14, 28],
-      'heatmap-opacity': 0.75,
-    },
-  });
-  layers.push({
-    id: 'exposure-heat',
-    type: 'heatmap',
-    source: 'exposure-live',
-    layout: { visibility: state.showExposure ? 'visible' : 'none' },
-    paint: {
-      'heatmap-weight': ['coalesce', ['get', 'weight'], 0],
-      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 14, 1.4],
-      'heatmap-color': [
-        'interpolate', ['linear'], ['heatmap-density'],
-        0, 'rgba(0,0,0,0)',
-        0.3, '#ffffb2',
-        0.6, '#fd8d3c',
-        1, '#bd0026',
-      ],
-      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 14, 28],
-      'heatmap-opacity': 0.8,
-    },
-  });
   layers.push({
     id: 'depth',
     type: 'raster',
     source: 'depth',
     paint: { 'raster-opacity': state.opacity, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
   });
+  // Addendum 2 layers sit above the depth drape: underneath it (at 85% opacity) they were
+  // washed out. They stay below the reaches and place labels, and use warm ramps that read
+  // against the blue depth palette. Mirrored in frontend/public/terrain/terrain.js.
+  // The model's weights are a relative ordering, not a magnitude, and are tiny (median ~0.001,
+  // max ~0.27), so used raw they render almost nothing. Stretch them monotonically: order is kept.
+  const heatWeight = ['interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0],
+    0, 0, 0.0005, 0.2, 0.002, 0.45, 0.01, 0.75, 0.05, 1];
+  const heat = (id, source, visible, ramp, opacity) => ({
+    id,
+    type: 'heatmap',
+    source,
+    layout: { visibility: visible ? 'visible' : 'none' },
+    paint: {
+      'heatmap-weight': heatWeight,
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 14, 1.6],
+      'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], ...ramp],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 14, 14, 32],
+      'heatmap-opacity': opacity,
+    },
+  });
+  layers.push(heat('vulnerability-heat', 'vulnerability-static', state.showVulnerability,
+    [0, 'rgba(0,0,0,0)', 0.15, 'rgba(255,240,170,0.55)', 0.45, '#ffd43b', 0.75, '#ffb000', 1, '#ff8a00'], 0.85));
+  layers.push(heat('exposure-heat', 'exposure-live', state.showExposure,
+    [0, 'rgba(0,0,0,0)', 0.15, 'rgba(255,180,110,0.6)', 0.4, '#ff7a1a', 0.7, '#ff2d2d', 1, '#ff1f6b'], 0.9));
   const reachFilter = ['==', ['get', 'in_aoi'], true];
   const lineLayout = { 'line-cap': 'round', 'line-join': 'round', visibility: state.showReaches ? 'visible' : 'none' };
   layers.push({

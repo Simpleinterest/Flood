@@ -9,6 +9,13 @@ data/**/*.part
 data/nwm/**/raw/
 runs/*
 !runs/kerr-2025-07-04-replay-fe0f78/
+# Written into the tracked run by `flood impacts extract*` and on-demand engine queries.
+# Already-tracked files stay tracked; use `git add -f` to share new ones deliberately.
+runs/kerr-2025-07-04-replay-fe0f78/impacts/
+runs/kerr-2025-07-04-replay-fe0f78/products/
+runs/kerr-2025-07-04-replay-fe0f78/hindsight/
+# Kerr County boundary cached by ingestion/scripts/fetch_kerr_county_boundary.py
+ingestion/data/
 .venv/
 __pycache__/
 *.pyc

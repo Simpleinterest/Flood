@@ -25,6 +25,7 @@ type Props = {
 const layerLabels = {
   flood: 'Flood', sectors: 'Areas', teams: 'Teams', hazards: 'Hazards',
   people: 'People', landmarks: 'Landmarks', flow: 'Flow',
+  vulnerability: 'Vulnerability', exposure: 'Exposure (live)',
 };
 
 /** MapLibre terrain from feature/terrain-view inside the Command and Field shell. */
@@ -33,6 +34,7 @@ export default function OperationalMap({ selected, features, target, onSelect, f
   const [layers, setLayers] = useState({
     flood: true, sectors: true, teams: !fieldCopy, hazards: true,
     people: true, landmarks: true, flow: true,
+    vulnerability: false, exposure: true,
   });
   const send = (type: string, payload: Record<string, unknown> = {}) =>
     frame.current?.contentWindow?.postMessage({ type, ...payload }, window.location.origin);
