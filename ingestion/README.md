@@ -66,6 +66,23 @@ and a `geometry` column. `db/exposure_views.sql` is the adapter between the two,
 `schema.sql` needs no change and the impact extractor
 (`flood impacts extract`) can read the layers as configured.
 
+If the USGS hydrography query service is down (`ingest_nhd_flowlines` fails with a
+CloudFront `504 Gateway Timeout` from `hydro.nationalmap.gov`, even though the layer's
+metadata page loads), load the same NHDPlus HR flowlines from USGS's staged HU4
+geodatabase instead. It is a static S3 download (~240 MB) that does not depend on that
+service:
+
+```bash
+curl -O https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_1210_HU4_GDB.zip
+unzip NHDPLUS_H_1210_HU4_GDB.zip
+python -m scripts.ingest_nhd_flowlines --from-file NHDPLUS_H_1210_HU4_GDB.gdb
+```
+
+`--from-file` filters to the same HUC8 and keys rows on the same `nhdplusid` field
+(written as an integer, `river:nhd:<nhdplusid>`). Use one path per database: the live
+path's id formatting could not be compared while the service was down, so mixing them
+may duplicate rows.
+
 All four automated ingestion scripts (`ingest_txdot_roads.py`,
 `ingest_nhd_flowlines.py`, `ingest_fema_buildings.py`,
 `ingest_usgs_crossings.py`) are idempotent: re-running any of them against
