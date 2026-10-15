@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from .corpus import build_corpus
 from .manifest import validate_manifest
@@ -35,6 +38,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Read ingestion/.env so `--embedding-provider openai` finds OPENAI_API_KEY there.
+    # Variables already set in the environment win.
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     args = _parser().parse_args(argv)
     try:
         if args.command == "validate":

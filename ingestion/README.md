@@ -39,11 +39,16 @@ export FLOOD_POSTGIS_DSN=postgresql://flood:flood@localhost:5432/flood
 
 After that, PostGIS can be stopped with `docker compose down`.
 
-**Critic (RAG plan review):** build an AAR index from your own report PDFs (`python -m aar build`; see the reference below), then run with your own OpenAI key. The critic reads these from the environment, not from `.env`:
+**Critic (RAG plan review):** build an AAR index from your own report PDFs (`python -m aar build`; see the reference below), then add your own OpenAI key and the index location to `.env` (exported variables override it):
 
 ```bash
-export OPENAI_API_KEY=sk-...
-AAR_INDEX_DIR=../data/aar/library uvicorn critic.app:app --port 8001
+# in ingestion/.env
+OPENAI_API_KEY=sk-...
+AAR_INDEX_DIR=../data/aar/library
+```
+
+```bash
+uvicorn critic.app:app --port 8001
 ```
 
 Tests: `pytest`. Full reference (sources, camps, critic, RAGAS evaluation, IPAWS tool): [`docs/ingestion.md`](../docs/ingestion.md).

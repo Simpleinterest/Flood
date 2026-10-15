@@ -7,7 +7,9 @@ Run from `ingestion/` (same convention as `aar`):
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -91,4 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
+# `uvicorn critic.app:app` entry point: read ingestion/.env (OPENAI_API_KEY, AAR_INDEX_DIR,
+# CRITIC_*) as .env.example documents. Variables already set in the environment win.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 app = create_app()

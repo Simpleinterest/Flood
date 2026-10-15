@@ -273,6 +273,10 @@ export OPENAI_API_KEY=sk-...   # only required once a real request is made
 uvicorn critic.app:app --reload --port 8001
 ```
 
+Instead of exporting, these variables can go in `ingestion/.env`: the critic app,
+`python -m critic_eval` and `python -m aar` all load that file at startup, and
+exported variables take precedence over it.
+
 The app (`create_app()` in `critic/app.py`) starts and `GET /healthz` (liveness
 only) responds without a real `OPENAI_API_KEY` or a built corpus present;
 both are only needed once a real, non-faked `POST /v1/critique` request is

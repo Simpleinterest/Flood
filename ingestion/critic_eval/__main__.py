@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from datetime import datetime, timezone
+
+from dotenv import load_dotenv
 
 from .dataset import load_sample_plans
 from .mapping import to_ragas_records
@@ -88,6 +91,9 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Read ingestion/.env (OPENAI_API_KEY, AAR_INDEX_DIR, RAGAS_*, CRITIC_EVAL_*) as
+    # .env.example documents. Variables already set in the environment win.
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
     if args.command == "run":
