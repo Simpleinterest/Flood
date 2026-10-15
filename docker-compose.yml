@@ -1,6 +1,8 @@
 services:
   postgis:
     image: postgis/postgis:16-3.4
+    # The image is published for amd64 only; Apple Silicon runs it under emulation.
+    platform: linux/amd64
     environment:
       POSTGRES_DB: flood
       POSTGRES_USER: flood

@@ -85,6 +85,62 @@ def run_impacts_extract(args: argparse.Namespace) -> int:
     return 0
 
 
+def prewarmed_queries(run_dir: Path, data_dir: Path | None = None) -> list[tuple[str, str]]:
+    """Every (p, t) the API can serve with precomputed=1, hindsight first, as CLI strings."""
+    run = Run.open(run_dir, data_dir or run_dir.parent.parent / "data")
+    forward, hindsight = run.precomputed_index()
+    queries = [("hindsight", t.strftime("%Y-%m-%dT%H:%M:%SZ")) for t in sorted(hindsight)]
+    for p in sorted(forward):
+        for t in sorted(forward[p]):
+            queries.append((p.strftime("%Y-%m-%dT%H:%M:%SZ"), t.strftime("%Y-%m-%dT%H:%M:%SZ")))
+    return queries
+
+
+def pending_queries(run_dir: Path, data_dir: Path | None = None, force: bool = False) -> list[tuple[str, str]]:
+    """The prewarmed queries still lacking an impact.json (all of them with `force`)."""
+    from flood.timegrid import parse_iso
+
+    todo = []
+    for p, t in prewarmed_queries(run_dir, data_dir):
+        p_dt = None if p == "hindsight" else parse_iso(p)
+        if force or not impact_path(run_dir, p_dt, parse_iso(t)).is_file():
+            todo.append((p, t))
+    return todo
+
+
+def _extract_one(args: argparse.Namespace, p: str, t: str) -> tuple[str, str, int]:
+    one = argparse.Namespace(**{**vars(args), "p": p, "t": t})
+    return p, t, run_impacts_extract(one)
+
+
+def run_impacts_extract_prewarmed(args: argparse.Namespace) -> int:
+    """Extract Contract 2 for every prewarmed (p, t), skipping ones already written."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    run_dir = Path(args.run_dir)
+    if not (run_dir / "run.json").is_file():
+        print(f"Error: Run manifest not found: {run_dir / 'run.json'}", file=sys.stderr)
+        return 2
+    try:
+        resolve_dsn(args.postgis_dsn)  # fail fast, before any work, when no DSN is configured
+    except ExposureConfigError as err:
+        print(f"Error: exposure configuration: {err}", file=sys.stderr)
+        return 2
+
+    todo = pending_queries(run_dir, Path(args.data_dir) if args.data_dir else None, args.force)
+    print(f"{len(todo)} prewarmed queries to extract ({args.jobs} at a time)", file=sys.stderr)
+
+    failed = 0
+    with ProcessPoolExecutor(max_workers=args.jobs) as pool:
+        futures = [pool.submit(_extract_one, args, p, t) for p, t in todo]
+        for done, fut in enumerate(as_completed(futures), 1):
+            p, t, code = fut.result()
+            failed += code != 0
+            status = "ok" if code == 0 else f"FAILED (exit {code})"
+            print(f"[{done}/{len(todo)}] p={p} t={t} {status}", file=sys.stderr)
+    return 1 if failed else 0
+
+
 def register(subparsers: argparse._SubParsersAction) -> None:
     """Register the 'impacts' subcommand group."""
     impacts = subparsers.add_parser("impacts", help="Contract 2 impact products")
@@ -97,3 +153,15 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     extract.add_argument("--postgis-dsn", default=None, help="PostGIS DSN; else FLOOD_POSTGIS_DSN")
     extract.add_argument("--data-dir", default=None, help="Data directory for the run")
     extract.set_defaults(func=run_impacts_extract)
+
+    prewarmed = impacts_sub.add_parser(
+        "extract-prewarmed",
+        help="Extract Contract 2 facts for every prewarmed (p, t) in a run (feeds the live heatmap)",
+    )
+    prewarmed.add_argument("--scenario", required=True, help="Path to the scenario JSON")
+    prewarmed.add_argument("--run-dir", required=True, help="Path to the run directory")
+    prewarmed.add_argument("--postgis-dsn", default=None, help="PostGIS DSN; else FLOOD_POSTGIS_DSN")
+    prewarmed.add_argument("--data-dir", default=None, help="Data directory for the run")
+    prewarmed.add_argument("--jobs", type=int, default=4, help="Parallel extractions (default 4)")
+    prewarmed.add_argument("--force", action="store_true", help="Re-extract queries already written")
+    prewarmed.set_defaults(func=run_impacts_extract_prewarmed)

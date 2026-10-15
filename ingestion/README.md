@@ -6,12 +6,17 @@ road--stream crossings, camp footprint schema) into PostGIS with stable
 
 ## Setup
 
+Requires Python 3.12 or 3.13 (macOS's built-in `python3` is 3.9 and too old).
+
 ```bash
 cd ingestion
-python3 -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # edit if not using the default docker-compose values
 ```
+
+The commands below assume this virtualenv is active (`source .venv/bin/activate`,
+or `.venv\Scripts\activate` on Windows).
 
 ### Local PostGIS (development)
 
@@ -19,9 +24,11 @@ cp .env.example .env   # edit if not using the default docker-compose values
 docker compose up -d postgis
 ```
 
-This brings up a `postgis/postgis` container and applies `db/schema.sql` on
-first start (via `docker-entrypoint-initdb.d`). To (re)apply the schema by
-hand against any reachable Postgres:
+`docker-compose.yml` lives at the repository root; Compose finds it from
+`ingestion/` too. This brings up a `postgis/postgis` container and applies
+`db/schema.sql` on first start (via `docker-entrypoint-initdb.d`). The image is
+amd64-only, so on Apple Silicon it runs under emulation: slower, but works.
+To (re)apply the schema by hand against any reachable Postgres:
 
 ```bash
 psql "$DATABASE_URL" -f db/schema.sql
@@ -55,8 +62,13 @@ python -m scripts.ingest_camps --input <path to GeoJSON/Shapefile> --source <sou
 python -m scripts.verify_exposure_layers
 
 # 5. Expose the loaded tables under the names the scenario registry declares
-psql "$FLOOD_POSTGIS_DSN" -f db/exposure_views.sql
+python -m scripts.apply_exposure_views
 ```
+
+Step 5 runs `db/exposure_views.sql` with the same `.env` connection settings, so no
+local `psql` client is needed (`psql "$DATABASE_URL" -f db/exposure_views.sql` is
+equivalent). Next, generate the impact files the live heatmap reads with
+`flood impacts extract-prewarmed` from the repository root (root `README.md`, step 4).
 
 Step 5 creates the `flood_exposure.kerr_2025_07_04_*` views the Contract 0 exposure
 registry points at (`scenarios/kerr-2025-07-04.json`). The ingestion tables above are
