@@ -92,3 +92,19 @@ def test_source_manifest_v1_remains_valid_when_corpus_schema_is_v2(tmp_path):
 
     assert validated.schema_version == "1.0"
     assert CORPUS_SCHEMA_VERSION == "2.0"
+
+
+def test_optional_category_is_accepted_but_not_required(tmp_path):
+    from aar.models import OPTIONAL_SOURCE_CATEGORIES
+
+    manifest, documents = _complete_manifest(tmp_path)
+    optional = OPTIONAL_SOURCE_CATEGORIES[0]
+    path = tmp_path / f"{optional}.pdf"
+    path.write_bytes(f"synthetic {optional}".encode())
+    documents.append(_entry(optional, path))
+    manifest.write_text(json.dumps({"schema_version": "1.0", "documents": documents}))
+
+    validated = validate_manifest(manifest)
+
+    assert optional in {document.source_category for document in validated.documents}
+    assert not set(OPTIONAL_SOURCE_CATEGORIES) & set(REQUIRED_SOURCE_CATEGORIES)

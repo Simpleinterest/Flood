@@ -15,14 +15,24 @@ SCHEMA_VERSION = SOURCE_MANIFEST_SCHEMA_VERSION
 REQUIRED_SOURCE_CATEGORIES = (
     "tx_house_senate_committee",
     "kerr_hmp_2024",
-    "kerr_eop",
     "nws_service_assessment",
+)
+# Relaxed from required to optional due to insufficient data being found: as of
+# October 2026 no public PDF with a verifiable official source could be located
+# for any of these. The Kerr EOP and the FEMA IPAWS records were only released
+# through records requests, the Hays County (Wimberley) AAR was never published,
+# and no USGS post-flood report, Houston 2016 AAR or Llano 2018 AAR turned up.
+# They stay valid categories; move one back into REQUIRED_SOURCE_CATEGORIES
+# once a verified source for it is in the corpus.
+OPTIONAL_SOURCE_CATEGORIES = (
+    "kerr_eop",
     "usgs_post_flood_report",
     "fema_ipaws_records",
     "wimberley_2015_aar",
     "houston_2016_aar",
     "llano_2018_aar",
 )
+SOURCE_CATEGORIES = REQUIRED_SOURCE_CATEGORIES + OPTIONAL_SOURCE_CATEGORIES
 ANALYTIC_FIELDS = ("hazard", "phase", "tactic", "resources", "outcome", "lesson")
 
 

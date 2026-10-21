@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from .models import (
     ANALYTIC_FIELDS,
     REQUIRED_SOURCE_CATEGORIES,
+    SOURCE_CATEGORIES,
     SOURCE_MANIFEST_SCHEMA_VERSION,
     Annotation,
     ManifestError,
@@ -156,7 +157,7 @@ def validate_manifest(manifest_path: str | Path, *, require_complete: bool = Tru
             if not _nonempty(entry.get(field)):
                 errors.append(f"document {document_id}: missing {field}")
         category = entry.get("source_category")
-        if category not in REQUIRED_SOURCE_CATEGORIES:
+        if category not in SOURCE_CATEGORIES:
             errors.append(f"document {document_id}: invalid source_category {category!r}")
         if not _is_verified(entry):
             errors.append(f"document {document_id}: status must be 'verified'")
