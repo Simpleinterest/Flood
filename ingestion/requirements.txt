@@ -12,6 +12,8 @@ langchain-huggingface>=0.1
 langchain-openai>=0.2,<1
 pytest>=7.4
 pypdf>=5.0
+# pypdf needs this to open AES-encrypted PDFs (e.g. the Commerce OIG report)
+cryptography>=42
 sentence-transformers>=3.0
 faiss-cpu>=1.8
 fastapi>=0.115

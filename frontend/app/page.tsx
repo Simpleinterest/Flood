@@ -414,8 +414,8 @@ export default function Home() {
           plan: submittedPlan,
           decision_point: `${selected.code} · ${selected.name}`,
           situation: selected.rationale,
-          hazard: 'flood',
-          phase: 'response',
+          // No hazard/phase filters: they only match chunks a curator has annotated by
+          // page range, and an unannotated corpus would otherwise return nothing.
         }),
       });
       const body = (await res.json()) as

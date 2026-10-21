@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -78,7 +79,8 @@ def _document_id(path: Path, category: str) -> str:
     return slug[:36] or "unnamed-source"
 
 
-def build_draft(sources_dir: Path) -> dict:
+def build_draft(sources_dir: Path, manifest_dir: Path) -> dict:
+    """Draft entries whose PDF paths resolve relative to the manifest's folder."""
     documents = []
     for pdf in sorted(sources_dir.glob("*.pdf")):
         text, pages, error = _first_page_text(pdf)
@@ -89,7 +91,7 @@ def build_draft(sources_dir: Path) -> dict:
             "title": _guess_title(text),
             "publisher": TODO,
             "canonical_url": TODO,
-            "local_pdf_path": str(Path("../../../") / pdf.as_posix()),
+            "local_pdf_path": Path(os.path.relpath(pdf.resolve(), manifest_dir.resolve())).as_posix(),
             "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
             "status": "pending",
             "verified_by": TODO,
@@ -121,8 +123,8 @@ def main(argv: list[str] | None = None) -> int:
     if not sources.is_dir():
         print(f"Error: sources directory not found: {sources}")
         return 2
-    draft = build_draft(sources)
     out = Path(args.output)
+    draft = build_draft(sources, out.parent)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(draft, indent=2) + "\n", encoding="utf-8")
 

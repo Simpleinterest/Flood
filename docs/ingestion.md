@@ -206,9 +206,14 @@ be cited at all.
 Start from `aar/sources/manifest.example.json` or a generated draft, but do not build a
 placeholder manifest. Store real PDFs and the corresponding verified manifest
 under ignored `data/aar/`. The production manifest must include a verified
-entry for every required category: Texas House/Senate committee materials, Kerr
-County HMP and EOP, NWS, USGS, and FEMA records, plus Wimberley, Houston, and
-Llano AARs. Page-range annotations are optional human-reviewed metadata for
+entry for each of the three required categories: Texas House/Senate committee
+materials (`tx_house_senate_committee`), the 2024 Kerr County HMP (`kerr_hmp_2024`),
+and an NWS service assessment (`nws_service_assessment`). The Kerr EOP, USGS
+post-flood report, FEMA IPAWS records, and the Wimberley, Houston, and Llano AARs
+are optional categories: they were relaxed from required because no public PDF
+with a verifiable official source could be found for them. Add one back to
+`REQUIRED_SOURCE_CATEGORIES` in `aar/models.py` once a verified copy is in the
+corpus. Page-range annotations are optional human-reviewed metadata for
 `hazard`, `phase`, `tactic`, `resources`, `outcome`, and `lesson`; absent values
 remain `null` and the pipeline never infers them.
 
